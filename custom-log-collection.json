@@ -1,0 +1,101 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "customLogName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the custom log data source."
+            }
+        },
+        "customLogDescription": {
+            "type": "string",
+            "metadata": {
+                "description": "Description of the custom log data source."
+            }
+        },
+        "customLogPaths": {
+            "type": "string",
+            "metadata": {
+                "description": "Comma separated list of filesystem paths to extract logs from."
+            }
+        },
+        "dateTimeExtractionRegex": {
+            "type": "string",
+            "metadata": {
+                "description": "Regex for date time extraction - https://docs.microsoft.com/en-us/azure/azure-monitor/platform/powershell-workspace-configuration"
+            } 
+        },
+        "dateTimeDelimiterRegex": {
+            "type": "string",
+            "metadata": {
+                "description": "Regex for record delimiter - https://docs.microsoft.com/en-us/azure/azure-monitor/platform/powershell-workspace-configuration"
+            } 
+        },
+        "operatingSystem": {
+            "type": "string",
+            "allowedValues": [
+                "Windows",
+                "Linux"
+            ],
+            "metadata": {
+                "description": "Operating system of VMs to gather these logs from."
+            }
+        },
+        "logAnalyticsWorkspaceName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of log analytics workspace to create this data source in."
+            }
+        }
+    },
+    "variables": {
+        "isWindowsOS": "[equals(parameters('operatingSystem'), 'Windows')]"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('logAnalyticsWorkspaceName'), '/', parameters('customLogName'))]",
+            "apiVersion": "2015-11-01-preview",
+            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+            "kind": "CustomLog",
+            "properties": {
+                "customLogName": "[parameters('customLogName')]",
+                "description": "[parameters('customLogDescription')]",
+                "extractions": [
+                    {
+                        "extractionName": "TimeGenerated",
+                        "extractionProperties": {
+                            "dateTimeExtraction": {
+                                "regex": [
+                                    {
+                                        "matchIndex": 0,
+                                        "numberdGroup": null,
+                                        "pattern": "[parameters('dateTimeExtractionRegex')]"
+                                    }
+                                ]
+                            }
+                        },
+                        "extractionType": "DateTime"
+                    }
+                ],
+                "inputs": [
+                    {
+                        "location": {
+                            "fileSystemLocations": {
+                                "linuxFileTypeLogPaths": "[if(variables('isWindowsOS'), json('null'), split(parameters('customLogPaths'), ','))]",
+                                "windowsFileTypeLogPaths": "[if(variables('isWindowsOS'), split(parameters('customLogPaths'), ','), json('null'))]"
+                            }
+                        },
+                        "recordDelimiter": {
+                            "regexDelimiter": {
+                                "matchIndex": 0,
+                                "numberdGroup": null,
+                                "pattern": "[parameters('dateTimeDelimiterRegex')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
